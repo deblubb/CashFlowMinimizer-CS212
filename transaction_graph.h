@@ -35,6 +35,16 @@ public:
         netBalance_[to]   += amount;
     }
 
+    // Equal split bill: payer covered the total for all participants
+    void addSplitTransaction(const std::string& payer,
+                            const std::vector<std::string>& participants,
+                            double total) {
+        double share = total / participants.size();
+        for (const auto& p : participants)
+            if (p != payer)
+                addTransaction(p, payer, share);
+    }
+
     // Compute and return the net balance map
     // (also cached internally for other modules to read)
     const std::unordered_map<std::string, double>& computeNetBalances() {
@@ -74,6 +84,10 @@ public:
     const std::unordered_map<std::string, double>& getNetBalances() const {
         return netBalance_;
     }
+
+    //returns the amount of edges in the transaction data
+    int edgeCount() const { return static_cast<int>(edges_.size()); }
+
 
 private:
     struct Edge {
