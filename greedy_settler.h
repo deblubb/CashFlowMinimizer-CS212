@@ -9,87 +9,140 @@
 #include <iomanip>
 #include <cmath>
 
+using namespace std;
+
 // ============================================================
 //  GreedySettler
 //
-//  Implements the classic greedy debt-minimization algorithm:
-//    1. Separate people into creditors (net > 0) and debtors (net < 0)
-//    2. Use a max-heap for creditors and a max-heap for |debt| debtors
-//    3. Repeatedly match the largest debtor with the largest creditor
-//       and settle as much as possible in one transaction
+//  THE BIG IDEA:
+//  Always match whoever owes the MOST money with whoever is
+//  owed the MOST money. Pay off as much as possible, then
+//  repeat until everyone is settled.
 //
-//  This minimizes the number of transactions in the average case
-//  (though NOT guaranteed optimal for every topology -- the
-//  multiset optimizer handles that).
+//  This wipes out the biggest debts first, so we end up using
+//  way fewer transactions than if we matched people randomly.
 //
-//  Time complexity: O(n log n)  where n = number of people
+//  Speed: O(n log n)   (n = number of people)
 // ============================================================
 class GreedySettler {
 public:
+
+    // One result: who pays, who gets paid, how much
     struct Settlement {
-        std::string from;   // who pays
-        std::string to;     // who receives
+        string from;
+        string to;
         double amount;
     };
 
-    // Run the greedy algorithm on the provided net balances.
-    // Returns the list of settlements needed.
-    std::vector<Settlement> solve(
-        const std::unordered_map<std::string, double>& netBalances)
-    {
+    // Small helper struct so our heap can store BOTH
+    // a dollar amount AND the person's name together.
+    // (this replaces using a "pair" so it's easier to read)
+    struct PersonAmount {
+        double amount;
+        string name;
+
+        // This tells the heap HOW to compare two PersonAmounts.
+        // We want the heap to always put the BIGGEST amount on top.
+        bool operator<(const PersonAmount& other) const {
+            return amount < other.amount;
+        }
+    };
+
+    // Runs the greedy algorithm and returns the list of payments needed.
+    vector<Settlement> solve(unordered_map<string, double> netBalances) {
+
         settlements_.clear();
 
-        // Max-heap: {amount, name}
-        // Creditors: positive balance
-        // Debtors:   stored as positive magnitude for easy comparison
-        using Entry = std::pair<double, std::string>;
-        std::priority_queue<Entry> creditors, debtors;
+        // A "max heap" (priority_queue) is a container that always
+        // keeps the BIGGEST value on top, so grabbing the max is instant.
+        priority_queue<PersonAmount> creditors;  // people who are OWED money
+        priority_queue<PersonAmount> debtors;    // people who OWE money
 
-        for (const auto& [name, bal] : netBalances) {
-            if (bal > 0.001)
-                creditors.push({bal, name});
-            else if (bal < -0.001)
-                debtors.push({-bal, name});   // store magnitude
+        // Sort everyone into the two heaps based on their balance
+        for (auto person : netBalances) {
+            string name = person.first;
+            double balance = person.second;
+
+            if (balance > 0.001) {
+                // Positive balance -> they're a creditor
+                PersonAmount p;
+                p.amount = balance;
+                p.name = name;
+                creditors.push(p);
+            }
+            else if (balance < -0.001) {
+                // Negative balance -> they're a debtor.
+                // We store the POSITIVE version of their debt
+                // so the heap math works the same as for creditors.
+                PersonAmount p;
+                p.amount = -balance;
+                p.name = name;
+                debtors.push(p);
+            }
         }
 
+        // Keep matching the biggest debtor with the biggest creditor
+        // until one of the heaps runs out of people.
         while (!creditors.empty() && !debtors.empty()) {
-            auto [credit, creditor] = creditors.top(); creditors.pop();
-            auto [debt,   debtor]   = debtors.top();   debtors.pop();
 
-            double settled = std::min(credit, debt);
-            settlements_.push_back({debtor, creditor, settled});
+            PersonAmount topCreditor = creditors.top();
+            creditors.pop();
 
-            double remainCredit = credit - settled;
-            double remainDebt   = debt   - settled;
+            PersonAmount topDebtor = debtors.top();
+            debtors.pop();
 
-            // Push back whoever still has a remaining balance
-            if (remainCredit > 0.001) creditors.push({remainCredit, creditor});
-            if (remainDebt   > 0.001) debtors.push({remainDebt,   debtor});
+            // You can only pay off the SMALLER of the two amounts
+            // (you can't pay more than you owe, or receive more than you're owed)
+            double settledAmount = min(topCreditor.amount, topDebtor.amount);
+
+            Settlement s;
+            s.from = topDebtor.name;
+            s.to = topCreditor.name;
+            s.amount = settledAmount;
+            settlements_.push_back(s);
+
+            // Whatever is left over still needs to be settled,
+            // so push it back onto the heap.
+            double creditorLeftover = topCreditor.amount - settledAmount;
+            double debtorLeftover = topDebtor.amount - settledAmount;
+
+            if (creditorLeftover > 0.001) {
+                PersonAmount p;
+                p.amount = creditorLeftover;
+                p.name = topCreditor.name;
+                creditors.push(p);
+            }
+
+            if (debtorLeftover > 0.001) {
+                PersonAmount p;
+                p.amount = debtorLeftover;
+                p.name = topDebtor.name;
+                debtors.push(p);
+            }
         }
 
         return settlements_;
     }
 
-    // Print the settlement plan
-    void printSettlements() const {
-        std::cout << "=== Greedy Settlement Plan (" 
-                  << settlements_.size() << " transactions) ===\n";
-        int i = 1;
-        for (const auto& s : settlements_) {
-            std::cout << "  " << i++ << ". "
-                      << s.from << " pays " << s.to
-                      << "  $" << std::fixed << std::setprecision(2) << s.amount
-                      << "\n";
+    // Prints every payment in the settlement plan
+    void printSettlements() {
+        cout << "=== Greedy Settlement Plan ("
+             << settlements_.size() << " transactions) ===\n";
+
+        for (int i = 0; i < (int)settlements_.size(); i++) {
+            Settlement s = settlements_[i];
+            cout << "  " << (i + 1) << ". " << s.from << " pays " << s.to
+                 << "  $" << fixed << setprecision(2) << s.amount << "\n";
         }
-        std::cout << "\n";
+        cout << "\n";
     }
 
-    int transactionCount() const {
-        return static_cast<int>(settlements_.size());
+    int transactionCount() {
+        return (int)settlements_.size();
     }
 
 private:
-    std::vector<Settlement> settlements_;
+    vector<Settlement> settlements_;
 };
 
 #endif // GREEDY_SETTLER_H

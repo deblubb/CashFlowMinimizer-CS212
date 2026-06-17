@@ -4,167 +4,209 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <set>              // std::multiset lives in <set>
-#include <map>
-#include <set>
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include <numeric>
-#include <algorithm>
-#include "greedy_settler.h" // reuse Settlement struct and greedy within groups
+#include "greedy_settler.h"
+
+using namespace std;
 
 // ============================================================
 //  MultisetOptimizer
 //
-//  Upgrades the greedy approach by detecting isolated sub-groups
-//  whose net balances sum to zero.  Each such sub-group can settle
-//  independently -- this reduces the total transaction count below
-//  what the global greedy achieves on certain graph topologies.
+//  THE BIG IDEA:
+//  Sometimes a small group of people happen to cancel each
+//  other out perfectly. Example: Eve is owed $25, and Frank
+//  owes $25. They can settle with EACH OTHER and never need
+//  to be involved with anyone else.
 //
-//  Algorithm:
-//    1. Represent net balances scaled to cents (integers) to avoid
-//       floating-point subset-sum issues.
-//    2. Use a multiset of (balance, name) pairs.
-//    3. For each person, search for a subset of remaining people
-//       whose balances sum to zero with this person's balance.
-//       If found, that subset is a self-contained group.
-//    4. Run greedy within each group independently.
+//  This class searches for these self-contained groups so we
+//  can settle them separately, which can reduce the total
+//  number of transactions needed overall.
 //
-//  This tackles the NP-hard subset-sum variation referenced in the
-//  project spec.  For small n (< ~20 people) the exponential search
-//  is fast; for larger n a heuristic/pruned DFS is used.
+//  This is a version of the "Subset Sum" problem, which is
+//  NP-hard -- there's no known fast way to solve it for every
+//  possible input, so we use a smart trial-and-error search
+//  (called "backtracking") instead.
 //
-//  Time complexity:
-//    Best case  : O(n^2)  when many disjoint groups exist
-//    Worst case : O(2^n)  when no sub-groups exist (falls back to greedy)
+//  Speed: best case  O(n^2)    many groups found quickly
+//         worst case O(2^n)    no groups exist, full search needed
 // ============================================================
 class MultisetOptimizer {
 public:
+
+    // A group of people who can settle independently from everyone else
     struct Group {
-        std::vector<std::string> members;
-        std::vector<GreedySettler::Settlement> settlements;
+        vector<string> members;
+        vector<GreedySettler::Settlement> settlements;
     };
 
-    // Run the full optimization.
-    // Returns all groups found (each settled independently).
-    std::vector<Group> solve(
-        const std::unordered_map<std::string, double>& netBalances)
-    {
+    // Helper struct: one person's balance, stored as whole cents
+    // (instead of dollars) so we can compare amounts exactly.
+    // Computers can't reliably tell if two DECIMAL numbers are
+    // exactly equal, but they CAN do this perfectly with whole numbers.
+    struct PersonCents {
+        long long cents;
+        string name;
+    };
+
+    // Runs the search and returns every independent group found.
+    vector<Group> solve(unordered_map<string, double> netBalances) {
+
         groups_.clear();
         allSettlements_.clear();
 
-        // Scale to cents to work with integers (avoids float equality issues)
-        std::vector<std::pair<long long, std::string>> people; // {cents, name}
-        for (const auto& [name, bal] : netBalances) {
-            if (std::abs(bal) > 0.001)
-                people.push_back({llround(bal * 100.0), name});
+        // STEP 1: Convert every balance from dollars into whole cents.
+        // Example: $10.50 becomes 1050 (no decimals, no rounding issues)
+        vector<PersonCents> people;
+
+        for (auto person : netBalances) {
+            string name = person.first;
+            double balance = person.second;
+
+            if (abs(balance) > 0.001) {
+                PersonCents pc;
+                pc.cents = llround(balance * 100.0);
+                pc.name = name;
+                people.push_back(pc);
+            }
         }
 
-        std::vector<bool> used(people.size(), false);
+        // Keeps track of who we've already placed into a group
+        vector<bool> used(people.size(), false);
 
-        for (size_t i = 0; i < people.size(); ++i) {
+        // STEP 2: For every person not yet grouped, try to find
+        // a set of people (including them) whose balances add up to zero.
+        for (int i = 0; i < (int)people.size(); i++) {
             if (used[i]) continue;
 
-            // Try to find a subset that sums to zero starting with person i
-            std::vector<size_t> subset = {i};
-            long long runningSum = people[i].first;
+            vector<int> subset;
+            subset.push_back(i);
+            long long runningTotal = people[i].cents;
 
-            if (findZeroSubset(people, used, i + 1, runningSum, subset)) {
-                // Found a self-contained group
+            bool found = findZeroSumGroup(people, used, i + 1, runningTotal, subset);
+
+            if (found) {
+                // We found a group of people whose balances cancel out!
                 Group g;
-                std::unordered_map<std::string, double> groupBalances;
-                for (size_t idx : subset) {
+                unordered_map<string, double> groupBalances;
+
+                for (int j = 0; j < (int)subset.size(); j++) {
+                    int idx = subset[j];
                     used[idx] = true;
-                    g.members.push_back(people[idx].second);
-                    groupBalances[people[idx].second] =
-                        people[idx].first / 100.0;
+                    g.members.push_back(people[idx].name);
+
+                    // Convert back from cents to dollars
+                    groupBalances[people[idx].name] = people[idx].cents / 100.0;
                 }
 
-                // Settle within this group greedily
+                // Settle this small group using the greedy algorithm
                 GreedySettler gs;
                 g.settlements = gs.solve(groupBalances);
                 groups_.push_back(g);
 
-                for (const auto& s : g.settlements)
-                    allSettlements_.push_back(s);
+                for (int k = 0; k < (int)g.settlements.size(); k++) {
+                    allSettlements_.push_back(g.settlements[k]);
+                }
             }
         }
 
         return groups_;
     }
 
-    void printGroups() const {
-        std::cout << "=== Multiset Optimizer: Sub-group Analysis ===\n";
-        std::cout << "  Found " << groups_.size() << " independent sub-group(s)\n\n";
+    // Prints each group we found, and how it was settled internally
+    void printGroups() {
+        cout << "=== Multiset Optimizer: Sub-group Analysis ===\n";
+        cout << "  Found " << groups_.size() << " independent sub-group(s)\n\n";
 
-        int gNum = 1;
-        for (const auto& g : groups_) {
-            std::cout << "  Sub-group " << gNum++ << ": { ";
-            for (size_t i = 0; i < g.members.size(); ++i) {
-                std::cout << g.members[i];
-                if (i + 1 < g.members.size()) std::cout << ", ";
-            }
-            std::cout << " }\n";
+        for (int g = 0; g < (int)groups_.size(); g++) {
+            Group group = groups_[g];
 
-            int i = 1;
-            for (const auto& s : g.settlements) {
-                std::cout << "    " << i++ << ". "
-                          << s.from << " pays " << s.to
-                          << "  $" << std::fixed << std::setprecision(2)
-                          << s.amount << "\n";
+            cout << "  Sub-group " << (g + 1) << ": { ";
+            for (int i = 0; i < (int)group.members.size(); i++) {
+                cout << group.members[i];
+                if (i + 1 < (int)group.members.size()) cout << ", ";
             }
-            std::cout << "\n";
+            cout << " }\n";
+
+            for (int i = 0; i < (int)group.settlements.size(); i++) {
+                GreedySettler::Settlement s = group.settlements[i];
+                cout << "    " << (i + 1) << ". " << s.from << " pays " << s.to
+                     << "  $" << fixed << setprecision(2) << s.amount << "\n";
+            }
+            cout << "\n";
         }
     }
 
-    void printAllSettlements() const {
-        std::cout << "=== Optimized Settlement Plan ("
-                  << allSettlements_.size() << " transactions total) ===\n";
-        int i = 1;
-        for (const auto& s : allSettlements_) {
-            std::cout << "  " << i++ << ". "
-                      << s.from << " pays " << s.to
-                      << "  $" << std::fixed << std::setprecision(2)
-                      << s.amount << "\n";
+    // Prints the combined settlement plan across all groups
+    void printAllSettlements() {
+        cout << "=== Optimized Settlement Plan ("
+             << allSettlements_.size() << " transactions total) ===\n";
+
+        for (int i = 0; i < (int)allSettlements_.size(); i++) {
+            GreedySettler::Settlement s = allSettlements_[i];
+            cout << "  " << (i + 1) << ". " << s.from << " pays " << s.to
+                 << "  $" << fixed << setprecision(2) << s.amount << "\n";
         }
-        std::cout << "\n";
+        cout << "\n";
     }
 
-    int transactionCount() const {
-        return static_cast<int>(allSettlements_.size());
+    int transactionCount() {
+        return (int)allSettlements_.size();
     }
 
 private:
-    std::vector<Group> groups_;
-    std::vector<GreedySettler::Settlement> allSettlements_;
+    vector<Group> groups_;
+    vector<GreedySettler::Settlement> allSettlements_;
 
-    // Recursive DFS to find a subset starting from `start`
-    // that makes runningSum == 0.
-    // Pruned: if only 1 person remains and sum != 0, backtracks.
-    bool findZeroSubset(
-        const std::vector<std::pair<long long, std::string>>& people,
-        const std::vector<bool>& used,
-        size_t start,
-        long long runningSum,
-        std::vector<size_t>& subset)
-    {
-        if (runningSum == 0 && subset.size() >= 2)
-            return true;  // found a valid zero-sum group
+    // ------------------------------------------------------
+    // This is the "backtracking" search.
+    //
+    // The idea: try adding one more person to our subset.
+    //   - If the running total hits exactly zero, we're done!
+    //   - If not, try adding the NEXT person and recurse.
+    //   - If that doesn't work out, REMOVE them (this is the
+    //     "backtrack" step) and try a different person instead.
+    //
+    // It's like exploring a maze: walk forward, hit a dead end,
+    // walk back to the last fork, and try a different path.
+    // ------------------------------------------------------
+    bool findZeroSumGroup(vector<PersonCents>& people,
+                          vector<bool>& used,
+                          int start,
+                          long long runningTotal,
+                          vector<int>& subset) {
 
-        if (start >= people.size())
+        // Success! We found a group of 2 or more people that sums to zero.
+        if (runningTotal == 0 && subset.size() >= 2) {
+            return true;
+        }
+
+        // We've run out of people to try -- no group found this way.
+        if (start >= (int)people.size()) {
             return false;
+        }
 
-        for (size_t j = start; j < people.size(); ++j) {
-            if (used[j]) continue;
+        // Try adding each remaining person one at a time
+        for (int j = start; j < (int)people.size(); j++) {
+            if (used[j]) continue;  // skip people already in another group
 
+            // Try including person j
             subset.push_back(j);
-            if (findZeroSubset(people, used, j + 1,
-                               runningSum + people[j].first, subset))
-                return true;
+
+            bool success = findZeroSumGroup(
+                people, used, j + 1, runningTotal + people[j].cents, subset
+            );
+
+            if (success) {
+                return true;  // we found a working group, stop searching
+            }
+
+            // Didn't work out -- undo adding person j and try the next one
             subset.pop_back();
         }
 
+        // None of the remaining people led to a zero-sum group
         return false;
     }
 };

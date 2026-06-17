@@ -7,100 +7,134 @@
 #include <iostream>
 #include <iomanip>
 
+using namespace std;
+
 // ============================================================
 //  TransactionGraph
-//  Models a directed weighted graph of debts:
-//    edge (u -> v, amount) means u owes v `amount` dollars.
-//  After adding all edges, computeNetBalances() collapses the
-//  graph into a single net value per person:
-//    positive  => net creditor (others owe them)
-//    negative  => net debtor   (they owe others)
-//    zero      => balanced
+//
+//  Think of this like a notebook where we write down every
+//  "X owes Y this much money" entry, then add it all up to
+//  find out each person's FINAL balance.
+//
+//  A positive balance  = this person is OWED money (creditor)
+//  A negative balance  = this person OWES money (debtor)
+//  A zero balance      = this person is all settled up
 // ============================================================
 class TransactionGraph {
 public:
-    // Add a transaction: `from` owes `to` the given amount
-    void addTransaction(const std::string& from,
-                        const std::string& to,
-                        double amount) {
-        // Register both people
+
+    // Call this once for every debt.
+    // Example: addTransaction("Alice", "Bob", 30.00)
+    //          means Alice owes Bob $30.
+    void addTransaction(string from, string to, double amount) {
+
+        // Make sure both people already exist in our balance list
+        // (starting at $0 if we haven't seen them yet)
         ensureExists(from);
         ensureExists(to);
 
-        // Store raw edge for display
-        edges_.push_back({from, to, amount});
+        // Keep a record of the raw transaction (just for printing later)
+        Edge e;
+        e.from = from;
+        e.to = to;
+        e.amount = amount;
+        edges_.push_back(e);
 
-        // Accumulate net: debtor loses, creditor gains
-        netBalance_[from] -= amount;
-        netBalance_[to]   += amount;
+        // Update the running balances:
+        // The person who owes money loses points
+        netBalance_[from] = netBalance_[from] - amount;
+
+        // The person who is owed money gains points
+        netBalance_[to] = netBalance_[to] + amount;
     }
 
-    // Equal split bill: payer covered the total for all participants
-    void addSplitTransaction(const std::string& payer,
-                            const std::vector<std::string>& participants,
-                            double total) {
+    // For splitting a bill evenly among a group.
+    // Example: addSplitTransaction("Alice", {"Alice","Bob","Carol"}, 30.00)
+    //          means Alice paid $30 total, so Bob and Carol each
+    //          owe Alice their $10 share. Alice doesn't owe herself.
+    void addSplitTransaction(string payer, vector<string> participants, double total) {
+
         double share = total / participants.size();
-        for (const auto& p : participants)
-            if (p != payer)
+
+        for (int i = 0; i < (int)participants.size(); i++) {
+            string p = participants[i];
+
+            // The payer doesn't owe themselves a share
+            if (p != payer) {
                 addTransaction(p, payer, share);
+            }
+        }
     }
 
-    // Compute and return the net balance map
-    // (also cached internally for other modules to read)
-    const std::unordered_map<std::string, double>& computeNetBalances() {
+    // Returns how many individual transactions have been recorded so far
+    int edgeCount() {
+        return (int)edges_.size();
+    }
+
+    // Returns the map of final balances: name -> balance
+    unordered_map<string, double> computeNetBalances() {
         return netBalance_;
     }
 
-    // Print the raw transaction graph
-    void printGraph() const {
-        std::cout << "=== Transaction Graph ===\n";
-        for (const auto& e : edges_) {
-            std::cout << "  " << e.from
-                      << " -> " << e.to
-                      << "  $" << std::fixed << std::setprecision(2) << e.amount
-                      << "\n";
-        }
-        std::cout << "\n";
-    }
-
-    // Print net balances
-    void printNetBalances() const {
-        std::cout << "=== Net Balances ===\n";
-        for (const auto& [name, bal] : netBalance_) {
-            std::cout << "  " << std::setw(12) << std::left << name << " : ";
-            if (bal > 0.001)
-                std::cout << "+$" << std::fixed << std::setprecision(2) << bal
-                          << "  (creditor)\n";
-            else if (bal < -0.001)
-                std::cout << " $" << std::fixed << std::setprecision(2) << bal
-                          << "  (debtor)\n";
-            else
-                std::cout << " $0.00  (settled)\n";
-        }
-        std::cout << "\n";
-    }
-
-    // Read-only access for other modules
-    const std::unordered_map<std::string, double>& getNetBalances() const {
+    // Same as above, but doesn't make a copy (slightly faster)
+    unordered_map<string, double>& getNetBalances() {
         return netBalance_;
     }
 
-    //returns the amount of edges in the transaction data
-    int edgeCount() const { return static_cast<int>(edges_.size()); }
+    // Prints every single transaction we recorded
+    void printGraph() {
+        cout << "=== Transaction Graph ===\n";
+        for (int i = 0; i < (int)edges_.size(); i++) {
+            Edge e = edges_[i];
+            cout << "  " << e.from << " -> " << e.to
+                 << "  $" << fixed << setprecision(2) << e.amount << "\n";
+        }
+        cout << "\n";
+    }
 
+    // Prints the final balance for each person
+    void printNetBalances() {
+        cout << "=== Net Balances ===\n";
+
+        for (auto person : netBalance_) {
+            string name = person.first;
+            double balance = person.second;
+
+            cout << "  " << setw(12) << left << name << " : ";
+
+            if (balance > 0.001) {
+                cout << "+$" << fixed << setprecision(2) << balance
+                     << "  (creditor - is owed money)\n";
+            }
+            else if (balance < -0.001) {
+                cout << " $" << fixed << setprecision(2) << balance
+                     << "  (debtor - owes money)\n";
+            }
+            else {
+                cout << " $0.00  (settled)\n";
+            }
+        }
+        cout << "\n";
+    }
 
 private:
+
+    // One single transaction: "from" owes "to" this much money
     struct Edge {
-        std::string from, to;
+        string from;
+        string to;
         double amount;
     };
 
-    std::vector<Edge> edges_;
-    std::unordered_map<std::string, double> netBalance_;
+    vector<Edge> edges_;                    // every transaction we've seen
+    unordered_map<string, double> netBalance_;  // name -> final balance
 
-    void ensureExists(const std::string& name) {
-        if (netBalance_.find(name) == netBalance_.end())
+    // If this person hasn't shown up before, give them a starting
+    // balance of $0 so we don't crash when we try to update them.
+    void ensureExists(string name) {
+        if (netBalance_.find(name) == netBalance_.end()) {
             netBalance_[name] = 0.0;
+        }
     }
 };
 
