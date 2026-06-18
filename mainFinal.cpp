@@ -4,9 +4,9 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
-#include "transaction_graph.h"
-#include "greedy_settler.h"
-#include "multiset_optimizer.h"
+#include "transaction_graphFinal.h"
+#include "greedy_settlerFINAL.h"
+#include "multiset_optimizerFinal.h"
 
 using namespace std;
 // Format a name consistently

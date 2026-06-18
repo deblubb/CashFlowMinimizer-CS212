@@ -7,7 +7,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include "greedy_settler.h"
+#include "greedy_settlerFINAL.h"
 
 using namespace std;
 
