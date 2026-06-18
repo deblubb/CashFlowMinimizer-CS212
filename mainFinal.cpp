@@ -71,7 +71,7 @@ void handleTransaction(TransactionGraph& graph) {
     string fromRaw, toRaw, amtToken;
     double amount;
 
-    cout << "  From (who is owed): ";
+    cout << "  From (who owes): ";
     getline(cin, fromRaw);
     string from = normalizeName(fromRaw);
     if (from.empty()) {
@@ -79,7 +79,7 @@ void handleTransaction(TransactionGraph& graph) {
         return;
     }
 
-    cout << "  To (who owes): ";
+    cout << "  To (who owed): ";
     getline(cin, toRaw);
     string to = normalizeName(toRaw);
     if (to.empty()) {

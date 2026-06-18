@@ -42,7 +42,7 @@ public:
 
             // Skip the payer
             if (p != payer) {
-                addTransaction(payer, p, share);
+                addTransaction(p, payer, share);
             }
         }
     }
@@ -62,7 +62,7 @@ public:
         cout << "=== Transaction Graph ===\n";
         for (int i = 0; i < (int)edges_.size(); i++) {
             Edge e = edges_[i];
-            cout << "  " << e.from << " -> " << e.to
+            cout << "  " << e.to << " -> " << e.from
                  << "  $" << fixed << setprecision(2) << e.amount << "\n";
         }
         cout << "\n";
