@@ -57,10 +57,9 @@ public:
             if (used[i]) continue;
 
             vector<int> subset;
-            subset.push_back(i);
-            long long runningTotal = people[i].cents;
+            long long startTotal = people[i].cents;
 
-            bool found = findZeroSumGroup(people, used, i + 1, runningTotal, subset);
+            bool found = findZeroSumGroup(people, used, i, startTotal, subset);
 
             if (found) {
                 Group g;
@@ -134,43 +133,82 @@ private:
     vector<Group> groups_;
     vector<GreedySettler::Settlement> allSettlements_;
 
-    // Backtracking search for a zero-sum group
+    // Finds the SMALLEST possible zero-sum group starting with person
+    // "start". Tries group size 2 first, then 3, then 4, and so on,
+    // so it never accidentally swallows everyone into one giant group
+    // when smaller independent groups actually exist.
+    //
+    // (The old version just took whichever zero-sum group it found
+    // first via plain depth-first search, which depended on the
+    // iteration order of unordered_map and could wrongly merge
+    // separate groups into one.)
     bool findZeroSumGroup(vector<PersonCents>& people,
                           vector<bool>& used,
-                          int start,
-                          long long runningTotal,
+                          int startPerson,
+                          long long startTotal,
                           vector<int>& subset) {
 
-        // Found a valid group
-        if (runningTotal == 0 && subset.size() >= 2) {
-            return true;
+        int n = (int)people.size();
+
+        // How many additional people are actually available to try
+        int available = 0;
+        for (int k = 0; k < n; k++) {
+            if (!used[k] && k != startPerson) available++;
         }
 
-        // No more people to try
+        // Try every possible group size, smallest first.
+        // targetExtra = how many MORE people to add on top of startPerson
+        for (int targetExtra = 1; targetExtra <= available; targetExtra++) {
+            vector<int> trial;
+            trial.push_back(startPerson);
+
+            if (searchExactSize(people, used, startPerson + 1,
+                                startTotal, targetExtra, trial)) {
+                subset = trial;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Searches for a zero-sum group of EXACTLY startPerson + extraNeeded
+    // more people, using backtracking. Only returns true if a group of
+    // this exact size sums to zero.
+    bool searchExactSize(vector<PersonCents>& people,
+                         vector<bool>& used,
+                         int start,
+                         long long runningTotal,
+                         int extraNeeded,
+                         vector<int>& subset) {
+
+        // Used up our budget of extra people: check if we hit zero
+        if (extraNeeded == 0) {
+            return runningTotal == 0;
+        }
+
+        // Not enough people left to reach the target size
         if (start >= (int)people.size()) {
             return false;
         }
 
-        // Try adding each remaining person
         for (int j = start; j < (int)people.size(); j++) {
-            if (used[j]) continue;  // already grouped
+            if (used[j]) continue;
 
-            // Add person j
             subset.push_back(j);
 
-            bool success = findZeroSumGroup(
-                people, used, j + 1, runningTotal + people[j].cents, subset
+            bool success = searchExactSize(
+                people, used, j + 1, runningTotal + people[j].cents,
+                extraNeeded - 1, subset
             );
 
             if (success) {
-                return true;  // group found
+                return true;
             }
 
-            // Remove person j and try another
             subset.pop_back();
         }
 
-        // No valid group found
         return false;
     }
 };
