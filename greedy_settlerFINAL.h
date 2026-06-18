@@ -11,7 +11,6 @@
 
 using namespace std;
 
-// ============================================================
 //  GreedySettler
 //
 //  THE BIG IDEA:
@@ -23,7 +22,7 @@ using namespace std;
 //  way fewer transactions than if we matched people randomly.
 //
 //  Speed: O(n log n)   (n = number of people)
-// ============================================================
+
 class GreedySettler {
 public:
 
