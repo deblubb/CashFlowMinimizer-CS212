@@ -80,11 +80,11 @@ public:
 
             if (balance > 0.001) {
                 cout << "+$" << fixed << setprecision(2) << balance
-                     << "  (creditor - is owed money)\n";
+                     << "  (debtor - is owed money)\n";
             }
             else if (balance < -0.001) {
                 cout << " $" << fixed << setprecision(2) << balance
-                     << "  (debtor - owes money)\n";
+                     << "  (creditor - owes money)\n";
             }
             else {
                 cout << " $0.00  (settled)\n";
