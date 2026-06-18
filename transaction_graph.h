@@ -42,7 +42,7 @@ public:
 
             // Skip the payer
             if (p != payer) {
-                addTransaction(p, payer, share);
+                addTransaction(payer, p, share);
             }
         }
     }
