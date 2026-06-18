@@ -105,7 +105,7 @@ void handleTransaction(TransactionGraph& graph) {
     }
 
     graph.addTransaction(from, to, amount);
-    cout << "  Recorded: " << from << " owes " << to
+    cout << "  Recorded: " << from << " pays " << to
               << "  $" << fixed << setprecision(2) << amount << "\n";
 }
 
