@@ -135,13 +135,6 @@ private:
 
     // Finds the SMALLEST possible zero-sum group starting with person
     // "start". Tries group size 2 first, then 3, then 4, and so on,
-    // so it never accidentally swallows everyone into one giant group
-    // when smaller independent groups actually exist.
-    //
-    // (The old version just took whichever zero-sum group it found
-    // first via plain depth-first search, which depended on the
-    // iteration order of unordered_map and could wrongly merge
-    // separate groups into one.)
     bool findZeroSumGroup(vector<PersonCents>& people,
                           vector<bool>& used,
                           int startPerson,
