@@ -28,8 +28,8 @@ public:
         edges_.push_back(e);
 
         // Update balances
-        netBalance_[from] = netBalance_[from] - amount;
-        netBalance_[to] = netBalance_[to] + amount;
+        netBalance_[from] = netBalance_[from] + amount;
+        netBalance_[to] = netBalance_[to] - amount;
     }
 
     // Split a payment evenly among a group
