@@ -71,11 +71,6 @@ public:
         return (int)edges_.size();
     }
 
-    // Returns the map of final balances: name -> balance
-    unordered_map<string, double> computeNetBalances() {
-        return netBalance_;
-    }
-
     // Same as above, but doesn't make a copy (slightly faster)
     unordered_map<string, double>& getNetBalances() {
         return netBalance_;

@@ -245,7 +245,7 @@ int main() {
     graph.printGraph();
     graph.printNetBalances();
 
-    const auto& netBalances = graph.computeNetBalances();
+    const auto& netBalances = graph.getNetBalances();
 
     // Greedy
     GreedySettler greedy;
