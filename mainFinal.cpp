@@ -9,12 +9,40 @@
 #include "multiset_optimizer.h"
 
 using namespace std;
+// Format a name consistently
+string normalizeName(const string& raw) {
+    string s = raw;
+
+    // Remove extra whitespace
+    size_t start = s.find_first_not_of(" \t\r\n");
+    size_t end   = s.find_last_not_of(" \t\r\n");
+    if (start == string::npos) return "";
+    s = s.substr(start, end - start + 1);
+
+    // Convert to lowercase
+    transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return tolower(c);
+    });
+
+    // Capitalize first letter
+    s[0] = static_cast<char>(toupper(static_cast<unsigned char>(s[0])));
+
+    // Capitalize letters after spaces
+    for (size_t i = 1; i < s.length(); ++i) {
+        if (isspace(static_cast<unsigned char>(s[i - 1]))) {
+            s[i] = static_cast<char>(toupper(static_cast<unsigned char>(s[i])));
+        }
+    }
+
+    return s;
+}
+
 // Parse a positive number
-bool parsePositiveDouble(const std::string& token, double& out) {
+bool parsePositiveDouble(const string& token, double& out) {
     if (token.empty()) return false;
     try {
         size_t pos;
-        double val = std::stod(token, &pos);
+        double val = stod(token, &pos);
 
         // Reject invalid input
         if (pos != token.size()) return false;
@@ -29,95 +57,95 @@ bool parsePositiveDouble(const std::string& token, double& out) {
 
 // Show available commands
 void printHelp() {
-    std::cout << "\nCommands:\n";
-    std::cout << "  transaction  — record that one person owes another\n";
-    std::cout << "  split        — split a bill equally among several people\n";
-    std::cout << "  show         — print the current transaction graph and net balances\n";
-    std::cout << "  done         — run the algorithms and show the settlement plan\n";
-    std::cout << "  help         — show this menu\n\n";
+    cout << "\nCommands:\n";
+    cout << "  transaction  — record that one person owes another\n";
+    cout << "  split        — split a bill equally among several people\n";
+    cout << "  show         — print the current transaction graph and net balances\n";
+    cout << "  done         — run the algorithms and show the settlement plan\n";
+    cout << "  help         — show this menu\n\n";
 }
 
 // Input handlers
 
-void handleTransaction(TransactionGraph& graph) {
-    std::string fromRaw, toRaw, amtToken;
+void handleTransaction(TransaGraph& graph) {
+    string fromRaw, toRaw, amtToken;
     double amount;
 
-    std::cout << "  From (who owes): ";
-    std::getline(std::cin, fromRaw);
-    std::string from = normalizeName(fromRaw);
+    cout << "  From (who owes): ";
+    getline(cin, fromRaw);
+    string from = normalizeName(fromRaw);
     if (from.empty()) {
-        std::cout << "  Error: name cannot be empty.\n";
+        cout << "  Error: name cannot be empty.\n";
         return;
     }
 
-    std::cout << "  To (who is owed): ";
-    std::getline(std::cin, toRaw);
-    std::string to = normalizeName(toRaw);
+    cout << "  To (who is owed): ";
+    getline(cin, toRaw);
+    string to = normalizeName(toRaw);
     if (to.empty()) {
-        std::cout << "  Error: name cannot be empty.\n";
+        cout << "  Error: name cannot be empty.\n";
         return;
     }
 
     if (from == to) {
-        std::cout << "  Error: a person cannot owe themselves.\n";
+        cout << "  Error: a person cannot owe themselves.\n";
         return;
     }
 
-    std::cout << "  Amount ($): ";
-    std::getline(std::cin, amtToken);
+    cout << "  Amount ($): ";
+    getline(cin, amtToken);
 
     // Remove leading $
     if (!amtToken.empty() && amtToken[0] == '$')
         amtToken = amtToken.substr(1);
 
     if (!parsePositiveDouble(amtToken, amount)) {
-        std::cout << "  Error: amount must be a positive number.\n";
+        cout << "  Error: amount must be a positive number.\n";
         return;
     }
 
     graph.addTransaction(from, to, amount);
-    std::cout << "  Recorded: " << from << " owes " << to
-              << "  $" << std::fixed << std::setprecision(2) << amount << "\n";
+    cout << "  Recorded: " << from << " owes " << to
+              << "  $" << fixed << setprecision(2) << amount << "\n";
 }
 
 void handleSplit(TransactionGraph& graph) {
-    std::string payerRaw, amtToken, line;
+    string payerRaw, amtToken, line;
     double total;
 
-    std::cout << "  Who paid (payer): ";
-    std::getline(std::cin, payerRaw);
-    std::string payer = normalizeName(payerRaw);
+    cout << "  Who paid (payer): ";
+    getline(cin, payerRaw);
+    string payer = normalizeName(payerRaw);
     if (payer.empty()) {
-        std::cout << "  Error: payer name cannot be empty.\n";
+        cout << "  Error: payer name cannot be empty.\n";
         return;
     }
 
-    std::cout << "  Total bill amount ($): ";
-    std::getline(std::cin, amtToken);
+    cout << "  Total bill amount ($): ";
+    getline(cin, amtToken);
     if (!amtToken.empty() && amtToken[0] == '$')
         amtToken = amtToken.substr(1);
 
     if (!parsePositiveDouble(amtToken, total)) {
-        std::cout << "  Error: amount must be a positive number.\n";
+        cout << "  Error: amount must be a positive number.\n";
         return;
     }
 
-    std::cout << "  Enter all participants (including payer), one per line.\n";
-    std::cout << "  Type 'done' when finished:\n";
+    cout << "  Enter all participants (including payer), one per line.\n";
+    cout << "  Type 'done' when finished:\n";
 
-    std::vector<std::string> participants;
+    vector<string> participants;
     bool payerIncluded = false;
 
     while (true) {
-        std::cout << "    Participant: ";
-        std::getline(std::cin, line);
-        std::string name = normalizeName(line);
+        cout << "    Participant: ";
+        getline(cin, line);
+        string name = normalizeName(line);
 
         if (name == "done") break;
 
         if (name.empty()) {
-            std::cout << "    Error: name cannot be empty, try again.\n";
+            cout << "    Error: name cannot be empty, try again.\n";
             continue;
         }
 
@@ -127,7 +155,7 @@ void handleSplit(TransactionGraph& graph) {
             if (p == name) { duplicate = true; break; }
 
         if (duplicate) {
-            std::cout << "    '" << name << "' already added, skipping.\n";
+            cout << "    '" << name << "' already added, skipping.\n";
             continue;
         }
 
@@ -136,44 +164,44 @@ void handleSplit(TransactionGraph& graph) {
     }
 
     if (participants.size() < 2) {
-        std::cout << "  Error: need at least 2 participants to split a bill.\n";
+        cout << "  Error: need at least 2 participants to split a bill.\n";
         return;
     }
 
     // Add payer if missing
     if (!payerIncluded) {
-        std::cout << "  Note: payer '" << payer
+        cout << "  Note: payer '" << payer
                   << "' was not in the list — adding them automatically.\n";
         participants.push_back(payer);
     }
 
     double share = total / participants.size();
-    std::cout << "  Split: $" << std::fixed << std::setprecision(2) << total
+    cout << "  Split: $" << fixed << setprecision(2) << total
               << " among " << participants.size()
               << " people = $" << share << " each\n";
 
     graph.addSplitTransaction(payer, participants, total);
 
-    std::cout << "  Recorded split bill (each non-payer owes "
+    cout << "  Recorded split bill (each non-payer owes "
               << payer << "  $" << share << ")\n";
 }
 
 // Main program
 int main() {
-    std::cout << "======================================\n";
-    std::cout << "       Cash Flow Minimizer\n";
-    std::cout << "======================================\n";
+    cout << "======================================\n";
+    cout << "       Cash Flow Minimizer\n";
+    cout << "======================================\n";
     printHelp();
 
     TransactionGraph graph;
-    std::string input;
+    string input;
 
     while (true) {
-        std::cout << "> ";
+        cout << "> ";
 
-        if (!std::getline(std::cin, input)) break; // EOF
+        if (!getline(cin, input)) break; // EOF
 
-        std::string cmd = normalizeName(input);
+        string cmd = normalizeName(input);
 
         if (cmd == "Done") {
             break;
@@ -195,20 +223,20 @@ int main() {
             // Ignore empty input
 
         } else {
-            std::cout << "  Unknown command '" << cmd
+            cout << "  Unknown command '" << cmd
                       << "'. Type 'help' for options.\n";
         }
     }
 
     // Need at least one transaction
     if (graph.edgeCount() == 0) {
-        std::cout << "\nNo transactions recorded. Exiting.\n";
+        cout << "\nNo transactions recorded. Exiting.\n";
         return 0;
     }
 
-    std::cout << "\n======================================\n";
-    std::cout << "         Running Algorithms\n";
-    std::cout << "======================================\n\n";
+    cout << "\n======================================\n";
+    cout << "         Running Algorithms\n";
+    cout << "======================================\n\n";
 
     // Show current graph
     graph.printGraph();
@@ -228,25 +256,25 @@ int main() {
     optimizer.printAllSettlements();
 
     // Compare results
-    std::cout << "=== Efficiency Comparison ===\n";
-    std::cout << "  Raw transactions entered : " << graph.edgeCount() << "\n";
-    std::cout << "  Greedy settlement        : "
+    cout << "=== Efficiency Comparison ===\n";
+    cout << "  Raw transactions entered : " << graph.edgeCount() << "\n";
+    cout << "  Greedy settlement        : "
               << greedy.transactionCount() << " transactions\n";
-    std::cout << "  Optimal settlement       : "
+    cout << "  Optimal settlement       : "
               << optimizer.transactionCount() << " transactions\n";
 
     int saved = greedy.transactionCount() - optimizer.transactionCount();
     if (saved > 0)
-        std::cout << "  Transactions saved       : " << saved << "\n";
+        cout << "  Transactions saved       : " << saved << "\n";
     else
-        std::cout << "  No improvement (greedy already optimal for this input)\n";
+        cout << "  No improvement (greedy already optimal for this input)\n";
 
     // Complexity summary
-    std::cout << "\n=== Algorithm Complexity ===\n";
-    std::cout << "  Graph construction    : O(E)        E = raw transactions\n";
-    std::cout << "  Net balance pass      : O(E)\n";
-    std::cout << "  Greedy settler        : O(n log n)  n = people\n";
-    std::cout << "  Multiset optimizer    : O(2^n) worst case, O(n^2) best case\n\n";
+    cout << "\n=== Algorithm Complexity ===\n";
+    cout << "  Graph construction    : O(E)        E = raw transactions\n";
+    cout << "  Net balance pass      : O(E)\n";
+    cout << "  Greedy settler        : O(n log n)  n = people\n";
+    cout << "  Multiset optimizer    : O(2^n) worst case, O(n^2) best case\n\n";
 
     return 0;
 }
