@@ -8,36 +8,7 @@
 #include "greedy_settler.h"
 #include "multiset_optimizer.h"
 
-// Helper functions
-
-// Format a name consistently
-std::string normalizeName(const std::string& raw) {
-    std::string s = raw;
-    
-    // Remove extra whitespace
-    size_t start = s.find_first_not_of(" \t\r\n");
-    size_t end   = s.find_last_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    s = s.substr(start, end - start + 1);
-    
-    // Convert to lowercase
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-        return std::tolower(c);
-    });
-    
-    // Capitalize first letter
-    s[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[0])));
-    
-    // Capitalize letters after spaces
-    for (size_t i = 1; i < s.length(); ++i) {
-        if (std::isspace(static_cast<unsigned char>(s[i - 1]))) {
-            s[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[i])));
-        }
-    }
-    
-    return s;
-}
-
+using namespace std;
 // Parse a positive number
 bool parsePositiveDouble(const std::string& token, double& out) {
     if (token.empty()) return false;
