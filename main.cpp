@@ -36,7 +36,7 @@ int main() {
     graph.printGraph();
 
     // STEP 2: Compute net balances
-    const auto& netBalances = graph.computeNetBalances();
+    const auto& netBalances = graph.getNetBalances();
     graph.printNetBalances();
 
     // STEP 3: Greedy algorithm (heap-based)
