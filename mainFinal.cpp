@@ -67,7 +67,7 @@ void printHelp() {
 
 // Input handlers
 
-void handleTransaction(TransaGraph& graph) {
+void handleTransaction(TransactionGraph& graph) {
     string fromRaw, toRaw, amtToken;
     double amount;
 
