@@ -142,7 +142,7 @@ void handleSplit(TransactionGraph& graph) {
         getline(cin, line);
         string name = normalizeName(line);
 
-        if (name == "done") break;
+        if (name == "Done") break;
 
         if (name.empty()) {
             cout << "    Error: name cannot be empty, try again.\n";
