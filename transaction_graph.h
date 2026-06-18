@@ -28,8 +28,8 @@ public:
         edges_.push_back(e);
 
         // Update balances
-        netBalance_[from] = netBalance_[from] + amount;
-        netBalance_[to] = netBalance_[to] - amount;
+        netBalance_[from] = netBalance_[from] - amount;
+        netBalance_[to] = netBalance_[to] + amount;
     }
 
     // Split a payment evenly among a group
@@ -62,7 +62,7 @@ public:
         cout << "=== Transaction Graph ===\n";
         for (int i = 0; i < (int)edges_.size(); i++) {
             Edge e = edges_[i];
-            cout << "  " << e.to << " -> " << e.from
+            cout << "  " << e.from << " -> " << e.to
                  << "  $" << fixed << setprecision(2) << e.amount << "\n";
         }
         cout << "\n";
